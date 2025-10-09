@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Excel Quiz Player — Single File</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    :root{--accent:#0b79d0;--ok:#2ea44f;--bad:#d73a49;--bg:#f6f8fa}
+    body{font-family:Inter,system-ui,Arial; background:var(--bg); margin:0; padding:24px; color:#0b1a2b; overflow-x:hidden}
+    .container{max-width:900px;margin:0 auto;background:white;padding:20px;border-radius:12px;box-shadow:0 6px 30px rgba(12,20,30,0.06);position:relative;overflow:hidden}
+    h1{margin:0 0 12px;font-size:20px}
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    input[type=file]{padding:6px}
+    button{background:var(--accent);color:white;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    .meta{margin:12px 0;color:#394e63}
+    .quiz-area{display:none;margin-top:16px;animation:slideIn 0.5s ease}
+    @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+    .card{background:#fff;border-radius:10px;padding:16px;border:1px solid #e6eef6}
+    .qno{font-weight:700;color:#144a6b}
+    .question{margin:8px 0 16px;font-size:18px}
+    .options{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .opt{padding:12px;border-radius:8px;border:1px solid #e6eef6;cursor:pointer;user-select:none}
+    .opt.disabled{pointer-events:none;opacity:.8}
+    .opt.correct{background:linear-gradient(90deg, #effbf0, #e6f7ec);border-color:var(--ok)}
+    .opt.wrong{background:linear-gradient(90deg,#fff5f6,#ffecec);border-color:var(--bad)}
+    .controls{display:flex;align-items:center;gap:12px;margin-top:12px}
+    .timer{flex:1}
+    .progress-wrap{height:10px;background:#e9f2fb;border-radius:10px;overflow:hidden}
+    .progress{height:100%;width:0%;transition:width 0.2s linear;background:var(--accent)}
+    .scoreboard{margin-top:16px}
+    .final{display:none;margin-top:18px;animation:slideIn 0.5s ease}
+    .small{font-size:13px;color:#4b6576}
+    .note{background:#fbfcff;padding:10px;border-radius:8px;border:1px dashed #d6e7fb;color:#13334a}
+    .summary{margin-top:20px;border-top:1px solid #e0e0e0;padding-top:12px}
+    .summary-item{margin-bottom:16px}
+    .summary-item h4{margin:0;color:#144a6b}
+    .summary-item ul{margin:6px 0 0;padding-left:18px}
+    @media(max-width:600px){.options{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Excel Quiz Player (single HTML)</h1>
+    <div class="row">
+      <div>
+        <label class="small">Upload Excel (.xlsx) using the template with columns:</label>
+        <div class="small note">Question No, Question, Option A, Option B, Option C, Option D, Correct Answer</div>
+      </div>
+    </div>
+    <div style="height:12px"></div>
+    <div class="row">
+      <input id="fileInput" type="file" accept=".xlsx,.xls" />
+      <button id="loadBtn" disabled>Load & Preview</button>
+      <button id="startBtn" disabled>Start Quiz</button>
+      <button id="resetBtn" style="display:none">Reset</button>
+    </div>
+
+    <div id="preview" class="meta"></div>
+
+    <div id="quiz" class="quiz-area card">
+      <div class="qno" id="qno">Q 1</div>
+      <div class="question" id="question">Question text will appear here</div>
+      <div class="options" id="options"></div>
+      <div class="controls">
+        <div class="timer">
+          <div style="display:flex;justify-content:space-between"><div class="small">Time left: <span id="timeLeft">30</span>s</div><div class="small" id="qcount">1 / 10</div></div>
+          <div class="progress-wrap" aria-hidden="true"><div id="progress" class="progress"></div></div>
+        </div>
+        <div style="width:120px;text-align:right">
+          <div class="small">Score: <span id="score">0</span></div>
+          <div style="height:6px"></div>
+          <button id="nextBtn" disabled>Next</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="final" class="final card">
+      <h3>Quiz Completed</h3>
+      <div class="scoreboard">Your Score: <strong id="finalScore">0</strong></div>
+      <div id="summary" class="summary"></div>
+      <div style="height:12px"></div>
+      <button id="retryBtn">Play Again</button>
+    </div>
+
+    <div style="height:10px"></div>
+    <div class="small">Deployment: save this file as <code>index.html</code> and open in a browser. To host publicly, push to a GitHub repo and enable GitHub Pages or upload to Netlify/Vercel.</div>
+  </div>
+
+<script>
+let workbookData=null,questions=[],cur=0,timerInterval=null,timeLeft=30,score=0,autoNextTimeout=null;
+const fileInput=document.getElementById('fileInput'),loadBtn=document.getElementById('loadBtn'),startBtn=document.getElementById('startBtn'),resetBtn=document.getElementById('resetBtn'),preview=document.getElementById('preview'),quiz=document.getElementById('quiz'),qno=document.getElementById('qno'),questionEl=document.getElementById('question'),optionsEl=document.getElementById('options'),timeLeftEl=document.getElementById('timeLeft'),progressEl=document.getElementById('progress'),qcount=document.getElementById('qcount'),scoreEl=document.getElementById('score'),nextBtn=document.getElementById('nextBtn'),final=document.getElementById('final'),finalScore=document.getElementById('finalScore'),summary=document.getElementById('summary'),retryBtn=document.getElementById('retryBtn');
+fileInput.addEventListener('change',()=>{loadBtn.disabled=!fileInput.files.length});
+loadBtn.addEventListener('click',()=>{const f=fileInput.files[0];if(!f)return alert('Please choose an Excel file');const reader=new FileReader();reader.onload=e=>{const data=new Uint8Array(e.target.result);const wb=XLSX.read(data,{type:'array'});const first=wb.Sheets[wb.SheetNames[0]];const json=XLSX.utils.sheet_to_json(first,{defval:''});workbookData=json;const required=['Question No','Question','Option A','Option B','Option C','Option D','Correct Answer'];const keys=Object.keys(json[0]||{});const missing=required.filter(r=>!keys.includes(r));if(missing.length){preview.innerHTML='<div style="color:#9b2c2c">Missing columns: '+missing.join(', ')+'</div>';startBtn.disabled=true;return;}questions=json.map(row=>({no:row['Question No']||'',q:row['Question']||'',opts:[row['Option A']||'',row['Option B']||'',row['Option C']||'',row['Option D']||''],correct:String(row['Correct Answer']||'').trim()})).filter(r=>r.q);preview.innerHTML=`<div>Loaded ${questions.length} questions. Click <strong>Start Quiz</strong> to begin.</div>`;startBtn.disabled=questions.length===0;resetBtn.style.display='inline-block'};reader.readAsArrayBuffer(f)});
+startBtn.addEventListener('click',()=>{if(!questions.length)return alert('No questions loaded');score=0;cur=0;scoreEl.textContent=score;final.style.display='none';quiz.style.display='block';startQuestion(cur)});
+resetBtn.addEventListener('click',()=>{workbookData=null;questions=[];preview.innerHTML='';startBtn.disabled=true;loadBtn.disabled=true;fileInput.value='';quiz.style.display='none';final.style.display='none';resetBtn.style.display='none'});
+function clearTimers(){if(timerInterval)clearInterval(timerInterval);if(autoNextTimeout)clearTimeout(autoNextTimeout)}
+function startQuestion(index){clearTimers();quiz.classList.remove('slideIn');void quiz.offsetWidth;quiz.classList.add('slideIn');const item=questions[index];qno.textContent='Q '+(index+1)+(item.no?(' — '+item.no):'');questionEl.textContent=item.q;optionsEl.innerHTML='';item.opts.forEach((o,i)=>{const div=document.createElement('div');div.className='opt';div.dataset.index=i;div.innerHTML=`<strong>${String.fromCharCode(65+i)}.</strong> ${o}`;div.addEventListener('click',()=>selectOption(div,item));optionsEl.appendChild(div)});qcount.textContent=(index+1)+' / '+questions.length;timeLeft=30;timeLeftEl.textContent=timeLeft;progressEl.style.width='0%';nextBtn.disabled=true;const start=Date.now();timerInterval=setInterval(()=>{const elapsed=Math.floor((Date.now()-start)/1000);const left=30-elapsed;timeLeft=left>0?left:0;timeLeftEl.textContent=timeLeft;const pct=Math.min(100,((30-timeLeft)/30)*100);progressEl.style.width=pct+'%';if(timeLeft<=0){clearInterval(timerInterval);showCorrectOnTimeout(item)}},200)}
+function selectOption(div,item){if(div.classList.contains('disabled'))return;[...optionsEl.children].forEach(d=>d.classList.add('disabled'));const picked=div.innerText.trim().slice(0,1);const correctKey=normalizeAnswer(item.correct);const correctIndex=['A','B','C','D'].indexOf(correctKey);if(picked===correctKey){div.classList.add('correct');score+=1;scoreEl.textContent=score}else{div.classList.add('wrong');if(correctIndex>=0)optionsEl.children[correctIndex].classList.add('correct')}clearTimers();nextBtn.disabled=false;autoNextTimeout=setTimeout(()=>{goNext()},1500)}
+function showCorrectOnTimeout(item){[...optionsEl.children].forEach(d=>d.classList.add('disabled'));const correctKey=normalizeAnswer(item.correct);const correctIndex=['A','B','C','D'].indexOf(correctKey);if(correctIndex>=0)optionsEl.children[correctIndex].classList.add('correct');nextBtn.disabled=false;autoNextTimeout=setTimeout(()=>{goNext()},1500)}
+function normalizeAnswer(a){if(!a)return'';a=String(a).trim();if(/^[ABCD]$/i.test(a))return a.toUpperCase();const up=a.toUpperCase();const item=questions[cur];for(let i=0;i<4;i++){if(item&&String(item.opts[i]).trim().toUpperCase()===up)return['A','B','C','D'][i]}const m=a.match(/[ABCD]/i);return m?m[0].toUpperCase():''}
+nextBtn.addEventListener('click',goNext);
+function goNext(){clearTimers();cur+=1;if(cur>=questions.length){finishQuiz();return}startQuestion(cur)}
+function finishQuiz(){quiz.style.display='none';final.style.display='block';finalScore.textContent=score+' / '+questions.length;renderSummary()}
+function renderSummary(){summary.innerHTML='';questions.forEach((q,i)=>{const si=document.createElement('div');si.className='summary-item';si.innerHTML=`<h4>Q${i+1}. ${q.q}</h4><ul>${q.opts.map((opt,idx)=>`<li${['A','B','C','D'][idx]===normalizeAnswer(q.correct)?' style=\"color:green;font-weight:600\"':''}>${String.fromCharCode(65+idx)}. ${opt}</li>`).join('')}</ul><div class='small'>Correct Answer: <strong>${normalizeAnswer(q.correct)}</strong></div>`;summary.appendChild(si)})}
+retryBtn.addEventListener('click',()=>{score=0;cur=0;scoreEl.textContent=score;final.style.display='none';quiz.style.display='block';startQuestion(0)});
+window.addEventListener('keydown',e=>{if(e.key==='Enter'&&!nextBtn.disabled)nextBtn.click()});
+</script>
+</body>
+</html>
