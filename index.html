@@ -87,30 +87,174 @@
     <div style="height:10px"></div>
     <div class="small">Deployment: save this file as <code>index.html</code> and open in a browser. To host publicly, push to a GitHub repo and enable GitHub Pages or upload to Netlify/Vercel.</div>
   </div>
-
 <script>
 let workbookData=null,questions=[],cur=0,timerInterval=null,timeLeft=30,score=0,autoNextTimeout=null;
 const fileInput=document.getElementById('fileInput'),loadBtn=document.getElementById('loadBtn'),startBtn=document.getElementById('startBtn'),resetBtn=document.getElementById('resetBtn'),preview=document.getElementById('preview'),quiz=document.getElementById('quiz'),qno=document.getElementById('qno'),questionEl=document.getElementById('question'),optionsEl=document.getElementById('options'),timeLeftEl=document.getElementById('timeLeft'),progressEl=document.getElementById('progress'),qcount=document.getElementById('qcount'),scoreEl=document.getElementById('score'),nextBtn=document.getElementById('nextBtn'),final=document.getElementById('final'),finalScore=document.getElementById('finalScore'),summary=document.getElementById('summary'),retryBtn=document.getElementById('retryBtn');
+
 fileInput.addEventListener('change',()=>{loadBtn.disabled=!fileInput.files.length});
-loadBtn.addEventListener('click',()=>{const f=fileInput.files[0];if(!f)return alert('Please choose an Excel file');const reader=new FileReader();reader.onload=e=>{const data=new Uint8Array(e.target.result);const wb=XLSX.read(data,{type:'array'});const first=wb.Sheets[wb.SheetNames[0]];const json=XLSX.utils.sheet_to_json(first,{defval:''});workbookData=json;const required=['Question No','Question','Option A','Option B','Option C','Option D','Correct Answer'];const keys=Object.keys(json[0]||{});const missing=required.filter(r=>!keys.includes(r));if(missing.length){preview.innerHTML='<div style="color:#9b2c2c">Missing columns: '+missing.join(', ')+'</div>';startBtn.disabled=true;return;}questions=json.map(row=>({no:row['Question No']||'',q:row['Question']||'',opts:[row['Option A']||'',row['Option B']||'',row['Option C']||'',row['Option D']||''],correct:String(row['Correct Answer']||'').trim(),chosen:null,isCorrect:null})).filter(r=>r.q);preview.innerHTML=`<div>Loaded ${questions.length} questions. Click <strong>Start Quiz</strong> to begin.</div>`;startBtn.disabled=questions.length===0;resetBtn.style.display='inline-block'};reader.readAsArrayBuffer(f)});
-startBtn.addEventListener('click',()=>{if(!questions.length)return alert('No questions loaded');score=0;cur=0;scoreEl.textContent=score;final.style.display='none';quiz.style.display='block';startQuestion(cur)});
-resetBtn.addEventListener('click',()=>{workbookData=null;questions=[];preview.innerHTML='';startBtn.disabled=true;loadBtn.disabled=true;fileInput.value='';quiz.style.display='none';final.style.display='none';resetBtn.style.display='none'});
+loadBtn.addEventListener('click',()=>{const f=fileInput.files[0];if(!f)return alert('Please choose an Excel file');
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const data=new Uint8Array(e.target.result);
+    const wb=XLSX.read(data,{type:'array'});
+    const first=wb.Sheets[wb.SheetNames[0]];
+    const json=XLSX.utils.sheet_to_json(first,{defval:''});
+    workbookData=json;
+    const required=['Question No','Question','Option A','Option B','Option C','Option D','Correct Answer'];
+    const keys=Object.keys(json[0]||{});
+    const missing=required.filter(r=>!keys.includes(r));
+    if(missing.length){
+      preview.innerHTML='<div style="color:#9b2c2c">Missing columns: '+missing.join(', ')+'</div>';
+      startBtn.disabled=true;return;
+    }
+    questions=json.map(row=>({
+      no:row['Question No']||'',
+      q:row['Question']||'',
+      opts:[row['Option A']||'',row['Option B']||'',row['Option C']||'',row['Option D']||''],
+      correct:String(row['Correct Answer']||'').trim(),
+      chosen:null,
+      isCorrect:null
+    })).filter(r=>r.q);
+    preview.innerHTML=`<div>Loaded ${questions.length} questions. Click <strong>Start Quiz</strong> to begin.</div>`;
+    startBtn.disabled=questions.length===0;
+    resetBtn.style.display='inline-block'
+  };
+  reader.readAsArrayBuffer(f)
+});
+
+startBtn.addEventListener('click',()=>{
+  if(!questions.length)return alert('No questions loaded');
+  score=0;
+  cur=0;
+  scoreEl.textContent=score.toFixed(2);
+  final.style.display='none';
+  quiz.style.display='block';
+  startQuestion(cur)
+});
+
+resetBtn.addEventListener('click',()=>{
+  workbookData=null;questions=[];
+  preview.innerHTML='';
+  startBtn.disabled=true;loadBtn.disabled=true;
+  fileInput.value='';
+  quiz.style.display='none';
+  final.style.display='none';
+  resetBtn.style.display='none'
+});
+
 function clearTimers(){if(timerInterval)clearInterval(timerInterval);if(autoNextTimeout)clearTimeout(autoNextTimeout)}
-function startQuestion(index){clearTimers();quiz.classList.remove('slideIn');void quiz.offsetWidth;quiz.classList.add('slideIn');const item=questions[index];qno.textContent='Q '+(index+1)+(item.no?(' — '+item.no):'');questionEl.textContent=item.q;optionsEl.innerHTML='';item.opts.forEach((o,i)=>{const div=document.createElement('div');div.className='opt';div.dataset.index=i;div.innerHTML=`<strong>${String.fromCharCode(65+i)}.</strong> ${o}`;div.addEventListener('click',()=>selectOption(div,item));optionsEl.appendChild(div)});qcount.textContent=(index+1)+' / '+questions.length;timeLeft=30;timeLeftEl.textContent=timeLeft;progressEl.style.width='0%';nextBtn.disabled=true;const start=Date.now();timerInterval=setInterval(()=>{const elapsed=Math.floor((Date.now()-start)/1000);const left=30-elapsed;timeLeft=left>0?left:0;timeLeftEl.textContent=timeLeft;const pct=Math.min(100,((30-timeLeft)/30)*100);progressEl.style.width=pct+'%';if(timeLeft<=0){clearInterval(timerInterval);showCorrectOnTimeout(item)}},200)}
-function selectOption(div,item){if(div.classList.contains('disabled'))return;[...optionsEl.children].forEach(d=>d.classList.add('disabled'));const picked=div.innerText.trim().slice(0,1);item.chosen=picked;const correctKey=normalizeAnswer(item.correct);const correctIndex=['A','B','C','D'].indexOf(correctKey);if(picked===correctKey){div.classList.add('correct');score+=1;item.isCorrect=true;scoreEl.textContent=score}else{div.classList.add('wrong');item.isCorrect=false;if(correctIndex>=0)optionsEl.children[correctIndex].classList.add('correct')}clearTimers();nextBtn.disabled=false;autoNextTimeout=setTimeout(()=>{goNext()},1500)}
-function showCorrectOnTimeout(item){[...optionsEl.children].forEach(d=>d.classList.add('disabled'));const correctKey=normalizeAnswer(item.correct);const correctIndex=['A','B','C','D'].indexOf(correctKey);item.chosen=null;item.isCorrect=false;if(correctIndex>=0)optionsEl.children[correctIndex].classList.add('correct');nextBtn.disabled=false;autoNextTimeout=setTimeout(()=>{goNext()},1500)}
-function normalizeAnswer(a){if(!a)return'';a=String(a).trim();if(/^[ABCD]$/i.test(a))return a.toUpperCase();const up=a.toUpperCase();const item=questions[cur];for(let i=0;i<4;i++){if(item&&String(item.opts[i]).trim().toUpperCase()===up)return['A','B','C','D'][i]}const m=a.match(/[ABCD]/i);return m?m[0].toUpperCase():''}
+
+function startQuestion(index){
+  clearTimers();
+  quiz.classList.remove('slideIn');void quiz.offsetWidth;quiz.classList.add('slideIn');
+  const item=questions[index];
+  qno.textContent='Q '+(index+1)+(item.no?(' — '+item.no):'');
+  questionEl.textContent=item.q;
+  optionsEl.innerHTML='';
+  item.opts.forEach((o,i)=>{
+    const div=document.createElement('div');
+    div.className='opt';
+    div.dataset.index=i;
+    div.innerHTML=`<strong>${String.fromCharCode(65+i)}.</strong> ${o}`;
+    div.addEventListener('click',()=>selectOption(div,item));
+    optionsEl.appendChild(div)
+  });
+  qcount.textContent=(index+1)+' / '+questions.length;
+  timeLeft=30;
+  timeLeftEl.textContent=timeLeft;
+  progressEl.style.width='0%';
+  nextBtn.disabled=true;
+  const start=Date.now();
+  timerInterval=setInterval(()=>{
+    const elapsed=Math.floor((Date.now()-start)/1000);
+    const left=30-elapsed;
+    timeLeft=left>0?left:0;
+    timeLeftEl.textContent=timeLeft;
+    const pct=Math.min(100,((30-timeLeft)/30)*100);
+    progressEl.style.width=pct+'%';
+    if(timeLeft<=0){
+      clearInterval(timerInterval);
+      showCorrectOnTimeout(item)
+    }
+  },200)
+}
+
+function selectOption(div,item){
+  if(div.classList.contains('disabled'))return;
+  [...optionsEl.children].forEach(d=>d.classList.add('disabled'));
+  const picked=div.innerText.trim().slice(0,1);
+  item.chosen=picked;
+  const correctKey=normalizeAnswer(item.correct);
+  const correctIndex=['A','B','C','D'].indexOf(correctKey);
+  
+  if(picked===correctKey){
+    div.classList.add('correct');
+    score+=1;                    // +1 for correct
+    item.isCorrect=true;
+  }else{
+    div.classList.add('wrong');
+    score-=0.25;                 // -0.25 for wrong
+    item.isCorrect=false;
+    if(correctIndex>=0)optionsEl.children[correctIndex].classList.add('correct');
+  }
+
+  scoreEl.textContent=score.toFixed(2);
+  clearTimers();
+  nextBtn.disabled=false;
+  autoNextTimeout=setTimeout(()=>{goNext()},1500);
+}
+
+function showCorrectOnTimeout(item){
+  [...optionsEl.children].forEach(d=>d.classList.add('disabled'));
+  const correctKey=normalizeAnswer(item.correct);
+  const correctIndex=['A','B','C','D'].indexOf(correctKey);
+  item.chosen=null;
+  item.isCorrect=null; // mark as skipped
+  if(correctIndex>=0)optionsEl.children[correctIndex].classList.add('correct');
+
+  // 🟢 No change in score for skipped
+  scoreEl.textContent=score.toFixed(2);
+
+  nextBtn.disabled=false;
+  autoNextTimeout=setTimeout(()=>{goNext()},1500);
+}
+
+function normalizeAnswer(a){
+  if(!a)return'';
+  a=String(a).trim();
+  if(/^[ABCD]$/i.test(a))return a.toUpperCase();
+  const up=a.toUpperCase();
+  const item=questions[cur];
+  for(let i=0;i<4;i++){
+    if(item&&String(item.opts[i]).trim().toUpperCase()===up)
+      return['A','B','C','D'][i];
+  }
+  const m=a.match(/[ABCD]/i);
+  return m?m[0].toUpperCase():''
+}
+
 nextBtn.addEventListener('click',goNext);
 function goNext(){clearTimers();cur+=1;if(cur>=questions.length){finishQuiz();return}startQuestion(cur)}
-function finishQuiz(){quiz.style.display='none';final.style.display='block';finalScore.textContent=score+' / '+questions.length;renderSummary()}
+
+function finishQuiz(){
+  quiz.style.display='none';
+  final.style.display='block';
+  finalScore.textContent=score.toFixed(2)+' / '+questions.length;
+  renderSummary();
+}
+
 function renderSummary(){
   summary.innerHTML='';
   questions.forEach((q,i)=>{
     const si=document.createElement('div');
     si.className='summary-item';
-    const status=q.isCorrect===true?`<span style="color:green;font-weight:600">✅ Correct</span>`:
-                 q.isCorrect===false?`<span style="color:red;font-weight:600">❌ Wrong</span>`:
-                 `<span style="color:#666">⏰ Skipped</span>`;
+    const status=
+      q.isCorrect===true
+        ? `<span style="color:green;font-weight:600">✅ Correct (+1)</span>`
+        : q.isCorrect===false
+          ? `<span style="color:red;font-weight:600">❌ Wrong (-0.25)</span>`
+          : `<span style="color:#999;font-weight:600">⏰ Skipped (0)</span>`; // 🟢 changed skipped color (gray)
+
     si.innerHTML=`<h4>Q${i+1}. ${q.q} — ${status}</h4>
     <ul>
       ${q.opts.map((opt,idx)=>{
@@ -126,7 +270,16 @@ function renderSummary(){
     summary.appendChild(si);
   })
 }
-retryBtn.addEventListener('click',()=>{score=0;cur=0;scoreEl.textContent=score;final.style.display='none';quiz.style.display='block';startQuestion(0)});
+
+retryBtn.addEventListener('click',()=>{
+  score=0;
+  cur=0;
+  scoreEl.textContent=score.toFixed(2);
+  final.style.display='none';
+  quiz.style.display='block';
+  startQuestion(0);
+});
+
 window.addEventListener('keydown',e=>{if(e.key==='Enter'&&!nextBtn.disabled)nextBtn.click()});
 </script>
 </body>
