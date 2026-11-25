@@ -1,286 +1,103 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Excel Quiz Player — Single File</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Excel Quiz Player</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
-    :root{--accent:#0b79d0;--ok:#2ea44f;--bad:#d73a49;--bg:#f6f8fa}
-    body{font-family:Inter,system-ui,Arial; background:var(--bg); margin:0; padding:24px; color:#0b1a2b; overflow-x:hidden}
-    .container{max-width:900px;margin:0 auto;background:white;padding:20px;border-radius:12px;box-shadow:0 6px 30px rgba(12,20,30,0.06);position:relative;overflow:hidden}
-    h1{margin:0 0 12px;font-size:20px}
-    .row{display:flex;gap:12px;flex-wrap:wrap}
-    input[type=file]{padding:6px}
-    button{background:var(--accent);color:white;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
-    button:disabled{opacity:.5;cursor:not-allowed}
-    .meta{margin:12px 0;color:#394e63}
-    .quiz-area{display:none;margin-top:16px;animation:slideIn 0.5s ease}
-    @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
-    .card{background:#fff;border-radius:10px;padding:16px;border:1px solid #e6eef6}
-    .qno{font-weight:700;color:#144a6b}
-    .question{margin:8px 0 16px;font-size:18px}
-    .options{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    .opt{padding:12px;border-radius:8px;border:1px solid #e6eef6;cursor:pointer;user-select:none}
-    .opt.disabled{pointer-events:none;opacity:.8}
-    .opt.correct{background:linear-gradient(90deg, #effbf0, #e6f7ec);border-color:var(--ok)}
-    .opt.wrong{background:linear-gradient(90deg,#fff5f6,#ffecec);border-color:var(--bad)}
-    .controls{display:flex;align-items:center;gap:12px;margin-top:12px}
-    .timer{flex:1}
-    .progress-wrap{height:10px;background:#e9f2fb;border-radius:10px;overflow:hidden}
-    .progress{height:100%;width:0%;transition:width 0.2s linear;background:var(--accent)}
-    .scoreboard{margin-top:16px}
-    .final{display:none;margin-top:18px;animation:slideIn 0.5s ease}
-    .small{font-size:13px;color:#4b6576}
-    .note{background:#fbfcff;padding:10px;border-radius:8px;border:1px dashed #d6e7fb;color:#13334a}
-    .summary{margin-top:20px;border-top:1px solid #e0e0e0;padding-top:12px}
-    .summary-item{margin-bottom:16px}
-    .summary-item h4{margin:0;color:#144a6b}
-    .summary-item ul{margin:6px 0 0;padding-left:18px}
-    @media(max-width:600px){.options{grid-template-columns:1fr}}
+    :root{--blue:#2563eb;--ink:#10243f;--muted:#64748b;--line:#d9e2ef;--ok:#15803d;--bad:#be123c}
+    *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden}
+    body{font-family:Inter,system-ui,Arial,sans-serif;background:radial-gradient(circle at 85% 5%,#bfdbfe 0,transparent 25rem),#edf4fb;color:var(--ink)}
+    button,input{font:inherit}button{border:0;border-radius:10px;font-weight:750;cursor:pointer;transition:.15s}button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 15px #2563eb35}button:disabled{opacity:.45;cursor:not-allowed}
+    button:focus-visible,.option:focus-visible,.file:focus-within{outline:3px solid #93c5fd;outline-offset:2px}
+    .app{height:100dvh;padding:clamp(10px,2vw,24px);display:grid;grid-template-rows:auto minmax(0,1fr);gap:12px;overflow:hidden}
+    .top,.shell{width:min(1100px,100%);margin:auto}.top{display:flex;justify-content:space-between;align-items:center;gap:12px}.brand{display:flex;align-items:center;gap:10px}.mark{display:grid;place-items:center;width:37px;height:37px;border-radius:11px;background:var(--blue);color:#fff;font-weight:900}.top h1{margin:0;font-size:clamp(18px,2.2vw,25px)}.sub,.small{color:var(--muted);font-size:13px}.sub{margin:2px 0 0}.tag{color:#1d4ed8;font-size:11px;font-weight:800;letter-spacing:.05em;white-space:nowrap}
+    .shell{position:relative;min-height:0;overflow:hidden;border:1px solid #cbd8e8;border-radius:18px;background:#ffffffed;box-shadow:0 16px 45px #1e3a5f20}.screen{display:none;width:100%;height:100%;min-height:0}.screen.active{display:flex}
+    #setup{flex-direction:column;justify-content:center;align-items:center;gap:clamp(14px,3vh,25px);padding:20px}.intro{text-align:center}.intro h2{margin:0;font-size:clamp(22px,3vw,32px)}.intro p{margin:8px 0 0;color:var(--muted);font-size:14px}.upload{width:min(690px,100%);display:grid;gap:13px;padding:clamp(16px,2.5vw,25px);border:1px solid var(--line);border-radius:16px;background:#f8fbff}.note{padding:10px 12px;border-radius:9px;background:#dbeafe;color:#17365e;font-size:12px;line-height:1.45}.file{display:flex;align-items:center;gap:10px;min-height:54px;padding:9px 12px;border:1px dashed #8aacd7;border-radius:10px;background:#fff;cursor:pointer}.file i{display:grid;place-items:center;width:31px;height:31px;border-radius:8px;background:#e5efff;font-style:normal}.file strong{overflow:hidden;color:#1d4ed8;text-overflow:ellipsis;white-space:nowrap}.file input{position:absolute;width:1px;height:1px;opacity:0}.actions{display:flex;justify-content:flex-end;gap:9px}.primary,.secondary{min-height:42px;padding:0 16px}.primary{background:var(--blue);color:#fff}.secondary{border:1px solid var(--line);background:#fff;color:#29405f}.status{min-height:19px;text-align:center;font-size:13px;font-weight:650}.status.error{color:var(--bad)}.status.ok{color:var(--ok)}
+    #quiz{flex-direction:column;gap:clamp(9px,1.7vh,17px);padding:clamp(13px,2vw,23px)}.qhead{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center}.count{color:#1d4ed8;font-size:12px;font-weight:850;letter-spacing:.04em}.track{height:8px;margin-top:7px;overflow:hidden;border-radius:999px;background:#e4ecf8}.progress{width:0;height:100%;background:linear-gradient(90deg,#2563eb,#38bdf8);transition:width .2s}.stats{display:flex;gap:8px}.stat{min-width:74px;padding:6px 9px;border:1px solid var(--line);border-radius:9px;background:#fbfdff;text-align:center}.stat strong{display:block;font-size:15px}.stat span{color:var(--muted);font-size:10px;font-weight:800;text-transform:uppercase}
+    .card{flex:1;min-height:0;display:grid;grid-template-rows:auto minmax(0,1fr);padding:clamp(13px,2vw,22px);border:1px solid var(--line);border-radius:14px;background:linear-gradient(135deg,#fff,#f7faff)}.question{display:-webkit-box;max-width:920px;margin:0 auto;overflow:hidden;color:#162b49;font-size:clamp(20px,2.8vw,32px);font-weight:780;line-height:1.35;text-align:center;-webkit-box-orient:vertical;-webkit-line-clamp:4}.options{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-content:center;gap:clamp(7px,1.2vw,13px);min-height:0;padding-top:clamp(12px,2vh,20px)}.option{display:grid;grid-template-rows:auto minmax(0,1fr);min-width:0;min-height:128px;padding:12px;border:1px solid #d7e2f0;border-radius:12px;background:#fff;color:#1c3454;text-align:left;box-shadow:0 2px 7px #1230530d}.option:hover:not(:disabled){border-color:#7aa6ef;background:#f5f9ff}.letter{display:grid;place-items:center;width:30px;height:30px;border-radius:8px;background:#edf4ff;color:#1d4ed8;font-size:15px;font-weight:900}.copy{display:-webkit-box;align-self:center;overflow:hidden;font-size:clamp(14px,1.55vw,18px);line-height:1.4;-webkit-box-orient:vertical;-webkit-line-clamp:5;word-break:break-word}.option.correct{border-color:#4bb878;background:#dcfce7}.option.correct .letter{background:var(--ok);color:#fff}.option.wrong{border-color:#f07a8c;background:#ffe4e6}.option.wrong .letter{background:var(--bad);color:#fff}.bottom{display:flex;align-items:center;justify-content:space-between;gap:12px}.bottom-actions{display:flex;gap:9px}.help{color:var(--muted);font-size:12px}
+    #done{align-items:flex-start;justify-content:center;padding:clamp(10px,2vw,20px);overflow-y:auto;overscroll-behavior:contain;background:linear-gradient(135deg,#f0f7ff,#fff)}.finish{display:flex;flex-direction:column;width:min(850px,100%);min-height:100%;padding:clamp(14px,2.4vw,24px);border:1px solid var(--line);border-radius:18px;background:#fff;box-shadow:0 12px 30px #1d4ed81a;text-align:center}.tick{display:grid;place-items:center;width:46px;height:46px;margin:0 auto 7px;border-radius:50%;background:#dcfce7;color:var(--ok);font-size:23px}.finish h2{margin:0}.score{margin:7px 0 0;color:#1d4ed8;font-size:clamp(25px,3.5vw,34px);font-weight:900}.result{display:flex;justify-content:center;gap:13px;margin:9px 0}.result div{min-width:78px;padding:7px;border-radius:9px;background:#f4f8fd}.result strong{display:block;font-size:17px}.result span{color:var(--muted);font-size:10px;font-weight:800;text-transform:uppercase}.review-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:7px 0 12px;padding:2px;text-align:left}.review-item{padding:11px;border:1px solid var(--line);border-radius:10px;background:#f8fbff}.review-item h3{display:-webkit-box;margin:0 0 8px;overflow:hidden;color:#172e50;font-size:14px;line-height:1.35;-webkit-box-orient:vertical;-webkit-line-clamp:2}.review-options{display:grid;gap:4px}.review-option{padding:4px 6px;border-radius:6px;color:#111827;font-size:12px;line-height:1.3}.review-option.correct{background:#dcfce7;color:var(--ok);font-weight:800}
+    .shell:has(#done.active){height:100%}/* review page: keep the frame at window height so #done scrolls */
+    @media(max-width:700px){.sub,.tag{display:none}.options{grid-template-columns:repeat(3,minmax(0,1fr))}.option{min-height:88px}.copy{-webkit-line-clamp:3;font-size:14px}.review-list{grid-template-columns:1fr}}@media(max-height:680px){.app{gap:7px;padding:8px 13px}.mark{width:30px;height:30px;border-radius:9px}.option{min-height:70px;padding:8px}.letter{width:24px;height:24px;font-size:12px}.copy{-webkit-line-clamp:2;font-size:13px}.question{-webkit-line-clamp:3;font-size:18px}.card{padding:11px}.finish{padding:10px}.tick{width:34px;height:34px;margin-bottom:3px;font-size:18px}.score{margin:2px 0;font-size:24px}.result{margin:4px 0}.result div{padding:4px}.review-item{padding:8px}.review-item h3{margin-bottom:5px;font-size:12px}.review-option{padding:2px 4px;font-size:11px}}
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Excel Quiz Player (single HTML)</h1>
-    <div class="row">
-      <div>
-        <label class="small">Upload Excel (.xlsx) using the template with columns:</label>
-        <div class="small note">Question No, Question, Option A, Option B, Option C, Option D, Correct Answer</div>
-      </div>
-    </div>
-    <div style="height:12px"></div>
-    <div class="row">
-      <input id="fileInput" type="file" accept=".xlsx,.xls" />
-      <button id="loadBtn" disabled>Load & Preview</button>
-      <button id="startBtn" disabled>Start Quiz</button>
-      <button id="resetBtn" style="display:none">Reset</button>
-    </div>
-
-    <div id="preview" class="meta"></div>
-
-    <div id="quiz" class="quiz-area card">
-      <div class="qno" id="qno">Q 1</div>
-      <div class="question" id="question">Question text will appear here</div>
-      <div class="options" id="options"></div>
-      <div class="controls">
-        <div class="timer">
-          <div style="display:flex;justify-content:space-between"><div class="small">Time left: <span id="timeLeft">30</span>s</div><div class="small" id="qcount">1 / 10</div></div>
-          <div class="progress-wrap" aria-hidden="true"><div id="progress" class="progress"></div></div>
+  <main class="app">
+    <header class="top"><div class="brand"><div class="mark">Q</div><div><h1>Excel Quiz Player</h1><p class="sub">Upload a workbook, answer questions, and see your score.</p></div></div><div class="tag">SINGLE-PAGE MODE</div></header>
+    <section class="shell">
+      <section id="setup" class="screen active">
+        <div class="intro"><h2>Ready to play?</h2><p>Choose an Excel quiz file to load questions with options A–E.</p></div>
+        <div class="upload">
+          <div class="note">Required: <b>Question No, Question, Option A, Option B, Option C, Option D, Correct Answer</b>. <b>Option E</b> is supported when present; older four-option sheets also work.</div>
+          <label class="file"><i>⇧</i><strong id="fileName">Choose an Excel file (.xlsx or .xls)</strong><input id="fileInput" type="file" accept=".xlsx,.xls"></label>
+          <div class="actions"><button id="loadBtn" class="secondary" type="button" disabled>Load quiz</button><button id="startBtn" class="primary" type="button" disabled>Start quiz</button></div>
         </div>
-        <div style="width:120px;text-align:right">
-          <div class="small">Score: <span id="score">0</span></div>
-          <div style="height:6px"></div>
-          <button id="nextBtn" disabled>Next</button>
-        </div>
-      </div>
-    </div>
+        <div id="status" class="status" role="status"></div>
+      </section>
+      <section id="quiz" class="screen">
+        <div class="qhead"><div><div id="count" class="count">QUESTION 1 OF 1</div><div class="track"><div id="progress" class="progress"></div></div></div><div class="stats"><div class="stat"><strong id="time">30s</strong><span>time</span></div><div class="stat"><strong id="scoreNow">0.00</strong><span>score</span></div></div></div>
+        <div class="card"><h2 id="question" class="question">Question text</h2><div id="options" class="options" aria-label="Answer choices"></div></div>
+        <div class="bottom"><span id="help" class="help">Choose one answer. Correct: +1; wrong: −0.25.</span><div class="bottom-actions"><button id="exitBtn" class="secondary" type="button">Exit test</button><button id="nextBtn" class="primary" type="button" disabled>Next question</button></div></div>
+      </section>
+      <section id="done" class="screen"><div class="finish"><div class="tick">✓</div><h2>Quiz completed</h2><div id="finalScore" class="score">0.00</div><p class="small">Final score</p><div class="result"><div><strong id="correct">0</strong><span>correct</span></div><div><strong id="answered">0</strong><span>answered</span></div><div><strong id="skipped">0</strong><span>skipped</span></div></div><div id="reviewList" class="review-list" aria-label="Questions and correct answers"></div><div class="actions" style="justify-content:center"><button id="newFile" class="secondary" type="button">Choose file</button><button id="retry" class="primary" type="button">Play again</button></div></div></section>
+    </section>
+  </main>
+  <script>
+    const KEYS=["A","B","C","D","E"],SECONDS=30;
+    let questions=[],current=0,score=0,timer=null,autoNext=null;
+    const $=function(id){return document.getElementById(id)};
+    const fileInput=$("fileInput"),fileName=$("fileName"),loadBtn=$("loadBtn"),startBtn=$("startBtn"),status=$("status"),count=$("count"),progress=$("progress"),time=$("time"),scoreNow=$("scoreNow"),question=$("question"),options=$("options"),help=$("help"),exitBtn=$("exitBtn"),nextBtn=$("nextBtn");
 
-    <div id="final" class="final card">
-      <h3>Quiz Completed</h3>
-      <div class="scoreboard">Your Score: <strong id="finalScore">0</strong></div>
-      <div id="summary" class="summary"></div>
-      <div style="height:12px"></div>
-      <button id="retryBtn">Play Again</button>
-    </div>
-
-    <div style="height:10px"></div>
-    <div class="small">Deployment: save this file as <code>index.html</code> and open in a browser. To host publicly, push to a GitHub repo and enable GitHub Pages or upload to Netlify/Vercel.</div>
-  </div>
-<script>
-let workbookData=null,questions=[],cur=0,timerInterval=null,timeLeft=30,score=0,autoNextTimeout=null;
-const fileInput=document.getElementById('fileInput'),loadBtn=document.getElementById('loadBtn'),startBtn=document.getElementById('startBtn'),resetBtn=document.getElementById('resetBtn'),preview=document.getElementById('preview'),quiz=document.getElementById('quiz'),qno=document.getElementById('qno'),questionEl=document.getElementById('question'),optionsEl=document.getElementById('options'),timeLeftEl=document.getElementById('timeLeft'),progressEl=document.getElementById('progress'),qcount=document.getElementById('qcount'),scoreEl=document.getElementById('score'),nextBtn=document.getElementById('nextBtn'),final=document.getElementById('final'),finalScore=document.getElementById('finalScore'),summary=document.getElementById('summary'),retryBtn=document.getElementById('retryBtn');
-
-fileInput.addEventListener('change',()=>{loadBtn.disabled=!fileInput.files.length});
-loadBtn.addEventListener('click',()=>{const f=fileInput.files[0];if(!f)return alert('Please choose an Excel file');
-  const reader=new FileReader();
-  reader.onload=e=>{
-    const data=new Uint8Array(e.target.result);
-    const wb=XLSX.read(data,{type:'array'});
-    const first=wb.Sheets[wb.SheetNames[0]];
-    const json=XLSX.utils.sheet_to_json(first,{defval:''});
-    workbookData=json;
-    const required=['Question No','Question','Option A','Option B','Option C','Option D','Correct Answer'];
-    const keys=Object.keys(json[0]||{});
-    const missing=required.filter(r=>!keys.includes(r));
-    if(missing.length){
-      preview.innerHTML='<div style="color:#9b2c2c">Missing columns: '+missing.join(', ')+'</div>';
-      startBtn.disabled=true;return;
+    function show(id){clearTimers();document.querySelectorAll(".screen").forEach(function(screen){screen.classList.toggle("active",screen.id===id)})}
+    function clearTimers(){clearInterval(timer);clearTimeout(autoNext);timer=null;autoNext=null}
+    function message(text,type){status.textContent=text;status.className="status"+(type?" "+type:"")}
+    function headerMap(row){const map={};Object.keys(row||{}).forEach(function(key){map[String(key).trim().toLowerCase()]=key});return map}
+    function value(row,map,name){return map[name.toLowerCase()]?row[map[name.toLowerCase()]]:""}
+    function answerKey(raw,item){
+      const text=String(raw||"").trim(),letter=text.match(/(?:^|\b)(?:option\s*)?\(?([A-E])\)?(?:\b|$)/i);
+      if(letter&&item.options.some(function(option){return option.key===letter[1].toUpperCase()}))return letter[1].toUpperCase();
+      const exact=item.options.find(function(option){return option.text.toLowerCase()===text.toLowerCase()});
+      return exact?exact.key:"";
     }
-    questions=json.map(row=>({
-      no:row['Question No']||'',
-      q:row['Question']||'',
-      opts:[row['Option A']||'',row['Option B']||'',row['Option C']||'',row['Option D']||''],
-      correct:String(row['Correct Answer']||'').trim(),
-      chosen:null,
-      isCorrect:null
-    })).filter(r=>r.q);
-    preview.innerHTML=`<div>Loaded ${questions.length} questions. Click <strong>Start Quiz</strong> to begin.</div>`;
-    startBtn.disabled=questions.length===0;
-    resetBtn.style.display='inline-block'
-  };
-  reader.readAsArrayBuffer(f)
-});
-
-startBtn.addEventListener('click',()=>{
-  if(!questions.length)return alert('No questions loaded');
-  score=0;
-  cur=0;
-  scoreEl.textContent=score.toFixed(2);
-  final.style.display='none';
-  quiz.style.display='block';
-  startQuestion(cur)
-});
-
-resetBtn.addEventListener('click',()=>{
-  workbookData=null;questions=[];
-  preview.innerHTML='';
-  startBtn.disabled=true;loadBtn.disabled=true;
-  fileInput.value='';
-  quiz.style.display='none';
-  final.style.display='none';
-  resetBtn.style.display='none'
-});
-
-function clearTimers(){if(timerInterval)clearInterval(timerInterval);if(autoNextTimeout)clearTimeout(autoNextTimeout)}
-
-function startQuestion(index){
-  clearTimers();
-  quiz.classList.remove('slideIn');void quiz.offsetWidth;quiz.classList.add('slideIn');
-  const item=questions[index];
-  qno.textContent='Q '+(index+1)+(item.no?(' — '+item.no):'');
-  questionEl.textContent=item.q;
-  optionsEl.innerHTML='';
-  item.opts.forEach((o,i)=>{
-    const div=document.createElement('div');
-    div.className='opt';
-    div.dataset.index=i;
-    div.innerHTML=`<strong>${String.fromCharCode(65+i)}.</strong> ${o}`;
-    div.addEventListener('click',()=>selectOption(div,item));
-    optionsEl.appendChild(div)
-  });
-  qcount.textContent=(index+1)+' / '+questions.length;
-  timeLeft=30;
-  timeLeftEl.textContent=timeLeft;
-  progressEl.style.width='0%';
-  nextBtn.disabled=true;
-  const start=Date.now();
-  timerInterval=setInterval(()=>{
-    const elapsed=Math.floor((Date.now()-start)/1000);
-    const left=30-elapsed;
-    timeLeft=left>0?left:0;
-    timeLeftEl.textContent=timeLeft;
-    const pct=Math.min(100,((30-timeLeft)/30)*100);
-    progressEl.style.width=pct+'%';
-    if(timeLeft<=0){
-      clearInterval(timerInterval);
-      showCorrectOnTimeout(item)
+    function parse(buffer){
+      const workbook=XLSX.read(new Uint8Array(buffer),{type:"array"}),sheet=workbook.Sheets[workbook.SheetNames[0]],rows=XLSX.utils.sheet_to_json(sheet,{defval:"",raw:false});
+      if(!rows.length)throw new Error("The first worksheet has no question rows.");
+      const map=headerMap(rows[0]),required=["Question No","Question","Option A","Option B","Option C","Option D","Correct Answer"],missing=required.filter(function(name){return !map[name.toLowerCase()]});
+      if(missing.length)throw new Error("Missing column"+(missing.length>1?"s":"")+": "+missing.join(", ")+".");
+      const parsed=rows.map(function(row,index){
+        const item={no:value(row,map,"Question No")||index+1,text:String(value(row,map,"Question")||"").trim(),options:KEYS.map(function(key){return {key:key,text:String(value(row,map,"Option "+key)||"").trim()}}).filter(function(option){return option.text}),source:value(row,map,"Correct Answer"),correct:"",chosen:"",result:null};
+        item.correct=answerKey(item.source,item);return item;
+      }).filter(function(item){return item.text});
+      const invalid=parsed.filter(function(item){return item.options.length<2||!item.correct});
+      if(invalid.length)throw new Error(invalid.length+" question(s) need at least two options and a valid Correct Answer (A–E or answer text).");
+      return parsed;
     }
-  },200)
-}
-
-function selectOption(div,item){
-  if(div.classList.contains('disabled'))return;
-  [...optionsEl.children].forEach(d=>d.classList.add('disabled'));
-  const picked=div.innerText.trim().slice(0,1);
-  item.chosen=picked;
-  const correctKey=normalizeAnswer(item.correct);
-  const correctIndex=['A','B','C','D'].indexOf(correctKey);
-  
-  if(picked===correctKey){
-    div.classList.add('correct');
-    score+=1;                    // +1 for correct
-    item.isCorrect=true;
-  }else{
-    div.classList.add('wrong');
-    score-=0.25;                 // -0.25 for wrong
-    item.isCorrect=false;
-    if(correctIndex>=0)optionsEl.children[correctIndex].classList.add('correct');
-  }
-
-  scoreEl.textContent=score.toFixed(2);
-  clearTimers();
-  nextBtn.disabled=false;
-  autoNextTimeout=setTimeout(()=>{goNext()},1500);
-}
-
-function showCorrectOnTimeout(item){
-  [...optionsEl.children].forEach(d=>d.classList.add('disabled'));
-  const correctKey=normalizeAnswer(item.correct);
-  const correctIndex=['A','B','C','D'].indexOf(correctKey);
-  item.chosen=null;
-  item.isCorrect=null; // mark as skipped
-  if(correctIndex>=0)optionsEl.children[correctIndex].classList.add('correct');
-
-  // 🟢 No change in score for skipped
-  scoreEl.textContent=score.toFixed(2);
-
-  nextBtn.disabled=false;
-  autoNextTimeout=setTimeout(()=>{goNext()},1500);
-}
-
-function normalizeAnswer(a){
-  if(!a)return'';
-  a=String(a).trim();
-  if(/^[ABCD]$/i.test(a))return a.toUpperCase();
-  const up=a.toUpperCase();
-  const item=questions[cur];
-  for(let i=0;i<4;i++){
-    if(item&&String(item.opts[i]).trim().toUpperCase()===up)
-      return['A','B','C','D'][i];
-  }
-  const m=a.match(/[ABCD]/i);
-  return m?m[0].toUpperCase():''
-}
-
-nextBtn.addEventListener('click',goNext);
-function goNext(){clearTimers();cur+=1;if(cur>=questions.length){finishQuiz();return}startQuestion(cur)}
-
-function finishQuiz(){
-  quiz.style.display='none';
-  final.style.display='block';
-  finalScore.textContent=score.toFixed(2)+' / '+questions.length;
-  renderSummary();
-}
-
-function renderSummary(){
-  summary.innerHTML='';
-  questions.forEach((q,i)=>{
-    const si=document.createElement('div');
-    si.className='summary-item';
-    const status=
-      q.isCorrect===true
-        ? `<span style="color:green;font-weight:600">✅ Correct (+1)</span>`
-        : q.isCorrect===false
-          ? `<span style="color:red;font-weight:600">❌ Wrong (-0.25)</span>`
-          : `<span style="color:#999;font-weight:600">⏰ Skipped (0)</span>`; // 🟢 changed skipped color (gray)
-
-    si.innerHTML=`<h4>Q${i+1}. ${q.q} — ${status}</h4>
-    <ul>
-      ${q.opts.map((opt,idx)=>{
-        const letter=['A','B','C','D'][idx];
-        const correctKey=normalizeAnswer(q.correct);
-        let style='';
-        if(letter===correctKey) style='color:green;font-weight:600';
-        if(q.chosen===letter && q.chosen!==correctKey) style='color:red;font-weight:600;text-decoration:line-through';
-        return `<li style="${style}">${letter}. ${opt}</li>`;
-      }).join('')}
-    </ul>
-    <div class='small'>Correct Answer: <strong>${normalizeAnswer(q.correct)}</strong></div>`;
-    summary.appendChild(si);
-  })
-}
-
-retryBtn.addEventListener('click',()=>{
-  score=0;
-  cur=0;
-  scoreEl.textContent=score.toFixed(2);
-  final.style.display='none';
-  quiz.style.display='block';
-  startQuestion(0);
-});
-
-window.addEventListener('keydown',e=>{if(e.key==='Enter'&&!nextBtn.disabled)nextBtn.click()});
-</script>
+    fileInput.addEventListener("change",function(){const file=fileInput.files[0];fileName.textContent=file?file.name:"Choose an Excel file (.xlsx or .xls)";loadBtn.disabled=!file;startBtn.disabled=true;message("")});
+    loadBtn.addEventListener("click",function(){
+      const file=fileInput.files[0];if(!file)return;const reader=new FileReader();loadBtn.disabled=true;message("Loading workbook…");
+      reader.onload=function(event){try{questions=parse(event.target.result);startBtn.disabled=false;message(questions.length+" questions loaded. Option E appears when it has a value.","ok")}catch(error){questions=[];startBtn.disabled=true;message(error.message,"error")}finally{loadBtn.disabled=false}};
+      reader.onerror=function(){loadBtn.disabled=false;message("The selected file could not be read.","error")};reader.readAsArrayBuffer(file);
+    });
+    function start(){if(!questions.length)return;score=0;current=0;questions.forEach(function(item){item.chosen="";item.result=null});scoreNow.textContent=score.toFixed(2);show("quiz");render()}
+    function render(){
+      clearTimers();const item=questions[current];count.textContent="QUESTION "+(current+1)+" OF "+questions.length+(item.no?"  ·  #"+item.no:"");question.textContent=item.text;progress.style.width=(current/questions.length)*100+"%";options.innerHTML="";nextBtn.disabled=true;help.textContent="Choose one answer. Correct: +1; wrong: −0.25.";
+      item.options.forEach(function(option){const button=document.createElement("button"),letter=document.createElement("span"),copy=document.createElement("span");button.type="button";button.className="option";button.dataset.key=option.key;button.setAttribute("aria-label","Option "+option.key+": "+option.text);letter.className="letter";letter.textContent=option.key;copy.className="copy";copy.textContent=option.text;button.append(letter,copy);button.addEventListener("click",function(){choose(option.key)});options.appendChild(button)});startTimer(item);
+    }
+    function startTimer(item){const started=Date.now();time.textContent=SECONDS+"s";timer=setInterval(function(){const left=Math.max(0,SECONDS-Math.floor((Date.now()-started)/1000));time.textContent=left+"s";if(!left){clearInterval(timer);timeout(item)}},200)}
+    function lock(){options.querySelectorAll(".option").forEach(function(button){button.disabled=true})}
+    function reveal(key){const button=options.querySelector('[data-key="'+key+'"]');if(button)button.classList.add("correct")}
+    function choose(key){
+      const item=questions[current],button=options.querySelector('[data-key="'+key+'"]');lock();clearTimers();item.chosen=key;
+      if(key===item.correct){button.classList.add("correct");item.result=true;score+=1;help.textContent="Correct! +1 point."}else{button.classList.add("wrong");reveal(item.correct);item.result=false;score-=.25;help.textContent="Not quite. The correct answer is "+item.correct+"."}
+      scoreNow.textContent=score.toFixed(2);nextBtn.disabled=false;autoNext=setTimeout(next,1300);
+    }
+    function timeout(item){lock();reveal(item.correct);help.textContent="Time is up. The correct answer is "+item.correct+".";nextBtn.disabled=false;autoNext=setTimeout(next,1300)}
+    function next(){clearTimers();current++;if(current>=questions.length){finish();return}render()}
+    function renderReviewList(){const list=$("reviewList");list.innerHTML="";questions.forEach(function(item,index){const card=document.createElement("article"),title=document.createElement("h3"),optionList=document.createElement("div");card.className="review-item";title.textContent="Q"+(index+1)+". "+item.text;optionList.className="review-options";item.options.forEach(function(option){const optionLine=document.createElement("div");optionLine.className="review-option"+(option.key===item.correct?" correct":"");optionLine.textContent=option.key+". "+option.text;optionList.appendChild(optionLine)});card.append(title,optionList);list.appendChild(card)})}
+    function finish(){clearTimers();const right=questions.filter(function(item){return item.result===true}).length,answered=questions.filter(function(item){return item.chosen}).length;progress.style.width="100%";$("finalScore").textContent=score.toFixed(2);$("correct").textContent=right;$("answered").textContent=answered;$("skipped").textContent=questions.length-answered;renderReviewList();show("done")}
+    startBtn.addEventListener("click",start);$("retry").addEventListener("click",start);exitBtn.addEventListener("click",finish);nextBtn.addEventListener("click",next);$("newFile").addEventListener("click",function(){fileInput.value="";fileName.textContent="Choose an Excel file (.xlsx or .xls)";questions=[];loadBtn.disabled=true;startBtn.disabled=true;message("");show("setup")});
+    window.addEventListener("keydown",function(event){if(!$("quiz").classList.contains("active"))return;const key=event.key.toUpperCase(),option=options.querySelector('[data-key="'+key+'"]:not(:disabled)');if(KEYS.includes(key)&&option)option.click();else if(event.key==="Enter"&&!nextBtn.disabled)nextBtn.click()});
+  </script>
 </body>
 </html>
